@@ -1,4 +1,4 @@
-# Timbratore — Requisiti (bozza v0.4, 21/10/2026)
+# Timbratore — Requisiti (bozza v0.5, 22/10/2026)
 
 Programma interno per gestire timbrature (in sede e da remoto), ferie e
 permessi, e calcolare le **ore disponibili** di ogni persona da passare in
@@ -188,12 +188,34 @@ con un'entrata senza uscita.
     0 ore e segnalazione;
   - **turni che passano la mezzanotte**: non si chiudono a mezzanotte ma alla
     fine del turno più una tolleranza configurabile;
-  - **uscita vera arrivata in ritardo** (terminale rimasto offline):
-    l'uscita automatica viene annullata e vale quella reale.
+  - **uscita vera arrivata dopo** (terminale rimasto offline, o timbratura
+    dimenticata inserita a mano): l'uscita automatica **smette di contare** e
+    vale quella reale. Non viene annullata: si calcola ogni volta, come il
+    verso. L'uscita automatica conta solo se, senza di lei, la giornata
+    resterebbe aperta. Così aggiungere una pausa pranzo dimenticata non riapre
+    la giornata, in qualunque ordine arrivino le timbrature.
+  - **mese già chiuso**: non si chiude in automatico; resta un'anomalia.
 - Il processo è **ripetibile senza danni**: se Railway riavvia il servizio o
   il processo salta una notte, all'avvio recupera le giornate rimaste aperte e
   non crea doppioni.
-- Orario di chiusura e tolleranza sono configurabili.
+- La tolleranza per i turni notturni si imposta nel profilo orario.
+- Il dipendente conferma la chiusura dal proprio cartellino (✓), oppure
+  inserisce l'uscita vera come timbratura dimenticata (4.4.3).
+
+#### 4.4.3 Timbratura dimenticata, inserita dal dipendente
+
+Chi dimentica di timbrare la registra **da solo**, dalla web app:
+
+- indica giorno, ora, se è un'**entrata o un'uscita** e un **motivo**
+  (obbligatorio);
+- conta subito nelle ore, ma resta **segnata «inserita a mano» (✍)** nel
+  cartellino, con il motivo; l'amministrazione la ritrova in «Da sistemare» e
+  può spostarla o annullarla (con motivo, tracciato);
+- limiti: non nel futuro, solo negli **ultimi 7 giorni** (impostazione
+  `manuale_max_giorni`), non in un mese chiuso, non a meno di 2 minuti da una
+  timbratura esistente (evita i doppioni);
+- non serve approvazione. Se in futuro servisse, si aggiunge un'impostazione
+  «richiede approvazione» senza cambiare il modello dei dati.
 
 ### 4.5 Disponibilità (base per il piano di lavoro)
 Per ogni persona e giorno, anche nel futuro:
@@ -267,6 +289,14 @@ di errore. Così il gestionale può essere irraggiungibile senza perdere nulla.
 - Diritto alla disconnessione per lo smart working.
 
 ## 8. Fasi
+
+**Stato al 22/10/2026** — fatto: struttura del progetto, database, login
+(locale, Microsoft, Google), anagrafica, badge, profili orario, festività,
+terminale con coda offline, timbratura da remoto, timbratura dimenticata,
+correzioni dell'amministrazione, chiusura automatica, «Da sistemare»,
+presenti, chiusura del mese. Da fare per completare l'MVP: **ferie e
+permessi** (le tabelle ci sono già), **export Excel per CNA**, notifiche
+email, import da Marcatempo.
 
 | Fase | Contenuto |
 |---|---|

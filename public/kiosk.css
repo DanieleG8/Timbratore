@@ -1,0 +1,22 @@
+body.kiosk { min-height: 100vh; display: flex; flex-direction: column; user-select: none; overflow: hidden; }
+#kiosk { flex: 1; display: flex; flex-direction: column; }
+.k-orologio { text-align: center; padding-top: 6vh; }
+.k-ora { font-size: clamp(64px, 16vw, 180px); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -2px; line-height: 1; }
+.k-data { font-size: clamp(18px, 3vw, 30px); color: var(--tenue); margin-top: 8px; text-transform: capitalize; }
+.k-esito {
+  margin: 4vh auto 0; min-height: 22vh; width: min(900px, calc(100% - 32px));
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 18px; text-align: center; padding: 16px; transition: background .2s;
+}
+.k-esito .grande { font-size: clamp(30px, 6vw, 60px); font-weight: 700; }
+.k-esito .medio { font-size: clamp(18px, 3vw, 28px); }
+.k-esito.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); }
+.k-esito.attesa { background: color-mix(in srgb, var(--primario) 14%, transparent); }
+.k-esito.errore { background: color-mix(in srgb, var(--errore) 18%, transparent); }
+.k-invito { color: var(--tenue); font-size: clamp(18px, 3vw, 28px); }
+.k-tasti { display: flex; gap: 16px; justify-content: center; margin-top: 3vh; }
+.k-tasti button { font-size: clamp(18px, 3vw, 26px); padding: 14px 30px; border-radius: 14px; }
+.k-tasti button.scelto { background: var(--primario); color: var(--primario-testo); border-color: var(--primario); }
+.k-stato { margin-top: auto; display: flex; justify-content: space-between; gap: 12px; padding: 10px 16px; font-size: 14px; color: var(--tenue); border-top: 1px solid var(--bordo); }
+.k-stato .offline { color: var(--errore); font-weight: 600; }
+.k-input { position: absolute; left: -9999px; }

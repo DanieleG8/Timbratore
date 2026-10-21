@@ -1,0 +1,89 @@
+:root {
+  --sfondo: #f5f6f8;
+  --carta: #ffffff;
+  --testo: #1d2330;
+  --tenue: #667085;
+  --bordo: #e2e5ea;
+  --primario: #1f5fbf;
+  --primario-testo: #ffffff;
+  --ok: #157f3b;
+  --attenzione: #b25e00;
+  --errore: #b42318;
+  --manuale-sfondo: #fff4e0;
+  --raggio: 10px;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sfondo: #12151b;
+    --carta: #1b2029;
+    --testo: #e8eaee;
+    --tenue: #98a2b3;
+    --bordo: #2c3340;
+    --primario: #5b93e6;
+    --primario-testo: #0b1220;
+    --ok: #4cc27a;
+    --attenzione: #f0a14a;
+    --errore: #f07167;
+    --manuale-sfondo: #3a2c12;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--sfondo);
+  color: var(--testo);
+}
+header.barra {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--carta); border-bottom: 1px solid var(--bordo);
+}
+header.barra h1 { font-size: 17px; margin: 0; flex: 1; }
+nav.schede { display: flex; gap: 4px; flex-wrap: wrap; padding: 8px 16px; }
+nav.schede button { background: transparent; color: var(--tenue); border: 0; padding: 8px 12px; border-radius: 8px; }
+nav.schede button.attiva { background: var(--carta); color: var(--testo); box-shadow: 0 0 0 1px var(--bordo); }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 48px; }
+.carta { background: var(--carta); border: 1px solid var(--bordo); border-radius: var(--raggio); padding: 16px; margin-bottom: 16px; }
+.carta h2 { font-size: 16px; margin: 0 0 12px; }
+button, .bottone {
+  font: inherit; cursor: pointer; border-radius: 8px; padding: 8px 14px;
+  border: 1px solid var(--bordo); background: var(--carta); color: var(--testo);
+}
+button.primario { background: var(--primario); color: var(--primario-testo); border-color: var(--primario); }
+button.piccolo { padding: 3px 8px; font-size: 13px; }
+button:disabled { opacity: .5; cursor: default; }
+input, select, textarea {
+  font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--bordo);
+  background: var(--carta); color: var(--testo); max-width: 100%;
+}
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--tenue); }
+.riga { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.tenue { color: var(--tenue); }
+.errore { color: var(--errore); }
+.ok { color: var(--ok); }
+.avviso { color: var(--attenzione); }
+.tabella { width: 100%; border-collapse: collapse; }
+.tabella th, .tabella td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--bordo); vertical-align: top; }
+.tabella th { font-size: 12px; color: var(--tenue); font-weight: 600; }
+.scorri { overflow-x: auto; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; margin: 2px 4px 2px 0;
+  border-radius: 999px; border: 1px solid var(--bordo); font-size: 13px; white-space: nowrap;
+}
+.chip.manuale { background: var(--manuale-sfondo); border-color: var(--attenzione); }
+.chip.automatica { border-style: dashed; border-color: var(--attenzione); }
+.chip.annullata { text-decoration: line-through; opacity: .55; }
+.weekend td { background: color-mix(in srgb, var(--sfondo) 70%, transparent); }
+.centro { max-width: 380px; margin: 10vh auto; }
+.pila { display: flex; flex-direction: column; gap: 10px; }
+.messaggio { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--bordo); margin: 8px 0; }
+.messaggio.errore { border-color: var(--errore); }
+.messaggio.ok { border-color: var(--ok); }
+code.copia { word-break: break-all; display: block; padding: 8px; border: 1px dashed var(--bordo); border-radius: 8px; user-select: all; }
+@media (max-width: 640px) {
+  .tabella.adatta thead { display: none; }
+  .tabella.adatta tr { display: block; border-bottom: 1px solid var(--bordo); padding: 6px 0; }
+  .tabella.adatta td { display: block; border: 0; padding: 2px 4px; }
+  .tabella.adatta td[data-et]:not(:empty)::before { content: attr(data-et) " "; color: var(--tenue); font-size: 12px; }
+}
