@@ -1,4 +1,4 @@
-# Timbratore — Requisiti (bozza v0.2, 21/10/2026)
+# Timbratore — Requisiti (bozza v0.3, 21/10/2026)
 
 Programma interno per gestire timbrature (in sede e da remoto), ferie e
 permessi, e calcolare le **ore disponibili** di ogni persona da passare in
@@ -64,8 +64,8 @@ seguito al piano di lavoro del gestionale (Fluentis).
 
 | Chi | Come entra |
 |---|---|
-| Dipendente con account Microsoft aziendale | «Accedi con Microsoft» (Entra ID, OpenID Connect). |
-| Dipendente con account Google aziendale | «Accedi con Google» (OpenID Connect). |
+| Dipendente con account Microsoft aziendale | «Accedi con Microsoft» (Entra ID, OpenID Connect), **stesso tenant di orderEntry**. |
+| Dipendente con account Google aziendale | «Accedi con Google» (OpenID Connect), **Google Workspace** con dominio aziendale. |
 | Dipendente senza account aziendale | Email (o nome utente) + password locale. |
 | Terminale Raspberry | Nessun utente: il **dispositivo** è registrato con un proprio token. Chi timbra è identificato dal badge o dal PIN. |
 
@@ -81,6 +81,37 @@ seguito al piano di lavoro del gestionale (Fluentis).
   ai tentativi, sessioni con scadenza.
 - Ruoli: dipendente, responsabile, HR, amministratore. Un ruolo non dipende da
   come si è entrati.
+
+**Microsoft (Entra ID)**
+- Stesso tenant di orderEntry (`ENTRA_TENANT_ID`), ma una **registrazione app
+  dedicata** (`ENTRA_CLIENT_ID` proprio), con l'indirizzo di ritorno del
+  dominio Timbratore. Così permessi e indirizzi di ritorno delle due app
+  restano separati.
+- Stesso schema di orderEntry (`server.js`, verifica del token): il browser
+  ottiene l'ID token con PKCE, il server lo verifica sulle chiavi pubbliche
+  del tenant controllando `aud`, `tid` e `iss`. Persona collegata tramite
+  `oid` (ID stabile dell'utente nel tenant).
+
+**Google (Workspace)**
+- Client OAuth nella console Google Cloud dell'organizzazione, tipo «Web».
+  Schermata di consenso **interna**, così solo gli account del Workspace possono
+  entrare.
+- Il server verifica l'ID token (`aud` = client ID, firma Google) e
+  **rifiuta se il campo `hd` non è il dominio aziendale**. Il controllo si fa
+  sul server, non solo nella pagina. Persona collegata tramite `sub`.
+
+**Variabili Railway previste**
+
+| Variabile | Contenuto |
+|---|---|
+| `DATABASE_URL` | Fornita da Railway col database PostgreSQL. |
+| `ENTRA_TENANT_ID` | Stesso valore di orderEntry. |
+| `ENTRA_CLIENT_ID` | ID della nuova registrazione app «Timbratore». |
+| `GOOGLE_CLIENT_ID` | Client OAuth Google. |
+| `GOOGLE_HD` | Dominio Workspace ammesso. |
+| `SESSION_SECRET` | Chiave per firmare le sessioni. |
+| `PUBLIC_BASE_URL` | Indirizzo pubblico dell'app (per i link di attivazione e i ritorni del login). |
+| `SMTP_*` | Invio email (attivazione, notifiche). |
 
 ## 4. Funzionalità
 
@@ -202,9 +233,11 @@ di errore. Così il gestionale può essere irraggiungibile senza perdere nulla.
 - Modello del lettore badge e tipo di badge (frequenza 125 kHz o 13,56 MHz).
 - Che software ValeProg gira oggi sul Raspberry e che piano di Marcatempo avete
   (serve per sapere cosa si può esportare da InOut Presenze).
-- Account Google: Google Workspace aziendale (dominio vostro) o account
-  personali @gmail? Cambia come si limita l'accesso.
-- Account Microsoft: lo stesso tenant usato da orderEntry?
+- Dominio pubblico dell'app (es. `presenze.<dominio>`), serve per gli
+  indirizzi di ritorno del login.
+- Dominio Google Workspace da ammettere.
+- Chi crea la registrazione app su Entra e il client OAuth su Google.
+- Servizio email da usare per attivazioni e notifiche (Microsoft 365?).
 - Saldi iniziali di ferie e ROL: da dove si caricano?
 - Struttura dell'Excel che oggi mandate a CNA (un esempio aiuterebbe).
 - Chi approva le richieste: un responsabile per persona o uno unico?
