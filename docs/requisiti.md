@@ -1,4 +1,4 @@
-# Timbratore — Requisiti (bozza v0.3, 21/10/2026)
+# Timbratore — Requisiti (bozza v0.4, 21/10/2026)
 
 Programma interno per gestire timbrature (in sede e da remoto), ferie e
 permessi, e calcolare le **ore disponibili** di ogni persona da passare in
@@ -118,8 +118,9 @@ seguito al piano di lavoro del gestionale (Fluentis).
 ### 4.1 Timbratura in sede (Raspberry)
 - Lettura badge NFC/RFID (il lettore USB si comporta come tastiera).
 - Riscontro immediato: nome, tipo, ora, suono di conferma o errore.
-- Tipo: alternanza automatica entrata/uscita, con tasti espliciti per
-  pausa e uscita per servizio.
+- Tipo: alternanza automatica entrata/uscita **che riparte ogni giorno** (la
+  prima timbratura della giornata è sempre un'entrata, vedi 4.4.1), con tasti
+  espliciti per pausa e uscita per servizio.
 - PIN di riserva per badge dimenticato.
 - Coda locale: le timbrature si inviano appena torna la rete; il server
   scarta i duplicati (ogni timbratura ha un ID generato sul terminale).
@@ -150,6 +151,50 @@ seguito al piano di lavoro del gestionale (Fluentis).
 - Anomalie: timbrature dispari, giornata senza timbrature né giustificativo,
   orari fuori fascia. Il dipendente le risolve con una richiesta di correzione.
 
+#### 4.4.1 Entrata o uscita: un'interpretazione, non un dato fisso
+
+Problema di oggi: chi dimentica di timbrare l'uscita fa «slittare» tutto, e
+da lì in poi ogni entrata viene registrata come uscita e viceversa.
+
+Soluzione: la timbratura conserva il **verso dichiarato** solo se la persona
+ha premuto un tasto esplicito; altrimenti è «automatico». Il verso effettivo
+(entrata/uscita) **si calcola** dalla sequenza delle timbrature della giornata:
+
+- la prima timbratura di ogni giornata è un'entrata, le successive alternano;
+- la sequenza riparte ogni giorno, quindi un'uscita dimenticata **non si
+  propaga** ai giorni dopo;
+- dopo una correzione (timbratura aggiunta, annullata o spostata) la giornata
+  si ricalcola da sola: non serve invertire a mano tutte le timbrature
+  successive.
+
+Il terminale mostra il verso calcolato al momento («Entrata 08:32 ✓»), ma sul
+server resta ricalcolabile.
+
+#### 4.4.2 Chiusura automatica delle timbrature aperte
+
+Ogni notte, alle **24:00 ora italiana**, un processo chiude le giornate rimaste
+con un'entrata senza uscita.
+
+- Si aggiunge un'uscita con **origine «automatica»** all'**orario di fine
+  turno** del profilo orario valido quel giorno per la persona.
+- La giornata resta **segnalata come anomalia da confermare**: la persona
+  riceve una notifica la mattina dopo e conferma o corregge l'orario;
+  l'amministratore la vede nell'elenco delle anomalie.
+- Casi limite:
+  - **entrata dopo la fine del turno** (es. rientro serale): la chiusura
+    automatica avrebbe un orario precedente all'entrata. Si chiude all'orario
+    dell'entrata (0 ore conteggiate) e si segnala;
+  - **giorno senza turno** (festivo, weekend, nessun profilo): stessa regola,
+    0 ore e segnalazione;
+  - **turni che passano la mezzanotte**: non si chiudono a mezzanotte ma alla
+    fine del turno più una tolleranza configurabile;
+  - **uscita vera arrivata in ritardo** (terminale rimasto offline):
+    l'uscita automatica viene annullata e vale quella reale.
+- Il processo è **ripetibile senza danni**: se Railway riavvia il servizio o
+  il processo salta una notte, all'avvio recupera le giornate rimaste aperte e
+  non crea doppioni.
+- Orario di chiusura e tolleranza sono configurabili.
+
 ### 4.5 Disponibilità (base per il piano di lavoro)
 Per ogni persona e giorno, anche nel futuro:
 
@@ -162,7 +207,20 @@ disponibilità incerta.
 ### 4.6 Amministrazione
 - Anagrafica dipendenti, badge, responsabili, profili orario.
 - «Chi è presente adesso» (anche per evacuazione).
-- Correzioni manuali sempre tracciate (prima / dopo / chi / quando / perché).
+- **Correzioni delle timbrature** (amministratori e HR), dalla vista
+  cartellino della persona:
+  - **aggiungere** una timbratura dimenticata (ora + verso);
+  - **spostare** l'orario di una timbratura;
+  - **forzare il verso** (entrata/uscita) di una timbratura;
+  - **annullare** una timbratura (es. doppia passata del badge);
+  - **confermare** una chiusura automatica.
+  
+  Ogni correzione richiede un motivo ed è tracciata (prima / dopo / chi /
+  quando / perché). La timbratura originale resta visibile, barrata. Dopo ogni
+  correzione la giornata e i totali si ricalcolano. Nei mesi chiusi le
+  correzioni sono bloccate, salvo riapertura esplicita del mese.
+- Elenco **anomalie da sistemare** (giornate dispari, chiusure automatiche da
+  confermare), filtrabile per persona e periodo, con correzione diretta.
 - Chiusura del mese: blocca il periodo, poi export.
 
 ### 4.7 Dipendente
@@ -178,8 +236,8 @@ disponibilità incerta.
 | `dispositivo` | id, nome, tipo (kiosk/web), ultimo_contatto |
 | `profilo_orario` | id, nome, regole (per giorno della settimana: fasce, pause, ore teoriche) |
 | `assegnazione_orario` | persona_id, profilo_id, dal, al |
-| `timbratura` | id (UUID dal dispositivo), persona_id, istante, tipo, origine, dispositivo_id, posizione?, ricevuta_il |
-| `correzione` | id, timbratura_id?, persona_id, nuovo_istante/tipo, motivo, autore, creata_il |
+| `timbratura` | id (UUID dal dispositivo), persona_id, istante, verso_dichiarato (entrata/uscita/pausa/servizio/automatico), origine (kiosk/web/importata/automatica/correzione), dispositivo_id, posizione?, ricevuta_il |
+| `correzione` | id, tipo (aggiunta/spostamento/verso/annullamento/conferma), timbratura_id?, persona_id, valore_prima, valore_dopo, motivo, autore, creata_il |
 | `tipo_assenza` | codice, nome, unità, riduce_disponibilità, saldo, richiede_approvazione |
 | `richiesta_assenza` | id, persona_id, tipo, dal, al, ore?, stato, approvata_da, note |
 | `saldo_movimento` | persona_id, saldo, quantità, causale, data |
@@ -212,7 +270,7 @@ di errore. Così il gestionale può essere irraggiungibile senza perdere nulla.
 
 | Fase | Contenuto |
 |---|---|
-| **1 — MVP** | Server, anagrafica, badge, terminale Raspberry con coda offline, profili orario, festività, ferie e permessi con approvazione, calcolo giornata, export Excel CNA. |
+| **1 — MVP** | Server, anagrafica, badge, terminale Raspberry con coda offline, profili orario, festività, ferie e permessi con approvazione, calcolo giornata, **correzioni amministratore**, **chiusura automatica a mezzanotte**, export Excel CNA. |
 | **2** | Web app per dipendenti: cartellino, timbratura remota, correzione anomalie, saldi. |
 | **3** | Disponibilità future esposte + connettore Fluentis. |
 | **4** | Turni, banca ore, arrotondamenti avanzati, sincronizzazione calendari. |
