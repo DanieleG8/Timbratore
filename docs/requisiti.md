@@ -1,4 +1,4 @@
-# Timbratore — Requisiti (bozza v0.1, 21/10/2026)
+# Timbratore — Requisiti (bozza v0.2, 21/10/2026)
 
 Programma interno per gestire timbrature (in sede e da remoto), ferie e
 permessi, e calcolare le **ore disponibili** di ogni persona da passare in
@@ -13,6 +13,10 @@ seguito al piano di lavoro del gestionale (Fluentis).
 | Paghe | Export **Excel** mensile per CNA. Formati specifici in seguito. |
 | Gestionale | Fluentis. Integrazione **rinviata**. Direzione: **il timbratore spinge** verso il gestionale. |
 | Biometria | **Esclusa** (impronte e volto: il Garante Privacy le ha sanzionate per le presenze). |
+| Hosting | **Railway**, come gli altri progetti. Deploy automatico dal ramo di default di GitHub. |
+| Database | **PostgreSQL di Railway**. Il disco del container si azzera a ogni deploy: lì non si salva nulla. |
+| Login | **Microsoft** (Entra ID) e **Google** per chi ha l'account aziendale; **credenziali locali** per gli altri. |
+| Sistema attuale | **Marcatempo Plus** di ValeProg (<https://valeprog.it/Marcatempo-Plus/App.aspx>), con reportistica InOut Presenze. |
 
 ## 2. Principi di progetto
 
@@ -33,23 +37,50 @@ seguito al piano di lavoro del gestionale (Fluentis).
 ## 3. Architettura
 
 ```
- ┌─────────────────┐        ┌──────────────────────────────┐
- │ Raspberry kiosk │──HTTPS─▶│ Server centrale (Node.js)    │
- │ badge + schermo │  coda   │  - API                       │
- │ SQLite locale   │ offline │  - motore calcolo ore        │
- └─────────────────┘        │  - database                   │
- ┌─────────────────┐        │  - outbox connettori ─────────┼──▶ Excel CNA
- │ Web app (PWA)   │──HTTPS─▶│                              │──▶ Fluentis (poi)
- │ dipendenti / HR │        └──────────────────────────────┘
- └─────────────────┘
+                              Railway
+ ┌─────────────────┐        ┌──────────────────────────────┐   ┌────────────┐
+ │ Raspberry kiosk │──HTTPS─▶│ Servizio Node.js             │──▶│ PostgreSQL │
+ │ badge + schermo │  coda   │  - API + web app             │   │ (Railway)  │
+ │ SQLite locale   │ offline │  - motore calcolo ore        │   └────────────┘
+ └─────────────────┘        │  - outbox connettori ─────────┼──▶ Excel CNA
+ ┌─────────────────┐        │                              │──▶ Fluentis (poi)
+ │ Web app (PWA)   │──HTTPS─▶│  login: Microsoft / Google / │
+ │ dipendenti / HR │        │         credenziali locali   │
+ └─────────────────┘        └──────────────────────────────┘
 ```
 
-- **Server**: Node.js (stesse competenze di orderEntry), database relazionale
-  (SQLite all'inizio, PostgreSQL se serve).
+- **Server**: un servizio Node.js su Railway (stesse competenze e stesso
+  flusso di deploy di orderEntry). Configurazione e segreti nelle variabili
+  d'ambiente di Railway, mai nel repo.
+- **Database**: PostgreSQL di Railway, con backup automatici attivi. Gli
+  export Excel si generano al volo e non si salvano sul disco del container.
 - **Terminale**: browser in modalità kiosk + piccolo servizio locale che legge
-  il badge e tiene la coda delle timbrature non ancora inviate.
-- **Web app**: installabile su telefono; usata per timbratura remota,
-  cartellino, richieste, amministrazione.
+  il badge e tiene la coda delle timbrature non ancora inviate (SQLite sul
+  Raspberry: qui il disco è persistente).
+- **Web app**: servita dallo stesso servizio, installabile su telefono; usata
+  per timbratura remota, cartellino, richieste, amministrazione.
+
+### 3.1 Accesso e identità
+
+| Chi | Come entra |
+|---|---|
+| Dipendente con account Microsoft aziendale | «Accedi con Microsoft» (Entra ID, OpenID Connect). |
+| Dipendente con account Google aziendale | «Accedi con Google» (OpenID Connect). |
+| Dipendente senza account aziendale | Email (o nome utente) + password locale. |
+| Terminale Raspberry | Nessun utente: il **dispositivo** è registrato con un proprio token. Chi timbra è identificato dal badge o dal PIN. |
+
+- Una `persona` può avere **più modi di accesso** collegati (es. Microsoft e
+  password locale). Il collegamento al login esterno avviene sull'ID stabile
+  del provider, non solo sull'email.
+- **Niente registrazione libera**: entra solo chi è già in anagrafica.
+  L'amministratore crea la persona e la abilita a uno o più modi di accesso.
+- Primo accesso con credenziali locali: link di attivazione via email (o
+  codice consegnato dall'HR) per scegliere la password. Stesso meccanismo per
+  il recupero password.
+- Password conservate con un algoritmo lento e sicuro (argon2 o bcrypt), limite
+  ai tentativi, sessioni con scadenza.
+- Ruoli: dipendente, responsabile, HR, amministratore. Un ruolo non dipende da
+  come si è entrati.
 
 ## 4. Funzionalità
 
@@ -110,7 +141,8 @@ disponibilità incerta.
 
 | Entità | Campi principali |
 |---|---|
-| `persona` | id, nome, cognome, email, attiva, responsabile_id |
+| `persona` | id, nome, cognome, email, attiva, responsabile_id, ruoli |
+| `accesso` | persona_id, provider (microsoft/google/locale), id_esterno, hash_password?, ultimo_accesso |
 | `badge` | codice, persona_id, valido_dal, valido_al |
 | `dispositivo` | id, nome, tipo (kiosk/web), ultimo_contatto |
 | `profilo_orario` | id, nome, regole (per giorno della settimana: fasce, pause, ore teoriche) |
@@ -154,10 +186,25 @@ di errore. Così il gestionale può essere irraggiungibile senza perdere nulla.
 | **3** | Disponibilità future esposte + connettore Fluentis. |
 | **4** | Turni, banca ore, arrotondamenti avanzati, sincronizzazione calendari. |
 
-## 9. Domande aperte
+## 9. Passaggio da Marcatempo Plus
+
+- **Storico**: esportare da InOut Presenze le timbrature passate (foglio
+  elettronico) e importarle come timbrature con origine «importata».
+- **Anagrafica e badge**: importare nominativi e codici badge, così i badge
+  attuali continuano a funzionare.
+- **Periodo in parallelo**: per almeno un mese si timbra su entrambi i sistemi
+  e si confrontano i totali mensili prima di spegnere il vecchio.
+- **Raspberry**: verificare quale software ValeProg ci gira (probabilmente
+  «Presenze PI»). Il nostro terminale si installa su una scheda SD nuova, così
+  si può tornare indietro sostituendo la scheda.
+
+## 10. Domande aperte
 - Modello del lettore badge e tipo di badge (frequenza 125 kHz o 13,56 MHz).
-- Dove gira il server: in sede, su un server esistente, in cloud?
-- Login della web app: account Microsoft 365 aziendale o credenziali proprie?
+- Che software ValeProg gira oggi sul Raspberry e che piano di Marcatempo avete
+  (serve per sapere cosa si può esportare da InOut Presenze).
+- Account Google: Google Workspace aziendale (dominio vostro) o account
+  personali @gmail? Cambia come si limita l'accesso.
+- Account Microsoft: lo stesso tenant usato da orderEntry?
 - Saldi iniziali di ferie e ROL: da dove si caricano?
 - Struttura dell'Excel che oggi mandate a CNA (un esempio aiuterebbe).
 - Chi approva le richieste: un responsabile per persona o uno unico?
